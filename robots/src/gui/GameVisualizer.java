@@ -139,6 +139,13 @@ public class GameVisualizer extends JPanel
         {
             newY = m_robotPositionY + velocity * duration * Math.sin(m_robotDirection);
         }
+
+        int panelWidth = getWidth();
+        int panelHeight = getHeight();
+
+        newX = applyLimits(newX, 0, panelWidth - 1);
+        newY = applyLimits(newY, 0, panelHeight - 1);
+
         m_robotPositionX = newX;
         m_robotPositionY = newY;
         double newDirection = asNormalizedRadians(m_robotDirection + angularVelocity * duration); 
