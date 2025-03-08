@@ -23,8 +23,8 @@ public class GameVisualizer extends JPanel
         return timer;
     }
     
-    private volatile double m_robotPositionX = 100;
-    private volatile double m_robotPositionY = 100; 
+    volatile double m_robotPositionX = 100;
+    volatile double m_robotPositionY = 100;
     private volatile double m_robotDirection = 0; 
 
     private volatile int m_targetPositionX = 150;
