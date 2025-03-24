@@ -42,14 +42,13 @@ public class LogWindowSource {
     public void append(LogLevel logLevel, String strMessage) {
 
         LogEntry entry = new LogEntry(logLevel, strMessage);
-        m_messages.add(entry);
+        synchronized (m_messages) {
+            m_messages.add(entry);
 
-        synchronized (m_listeners) {
-            if (m_messages.size() > m_iQueueLength) {
-                m_messages.removeFirst();
+            while (m_messages.size() > m_iQueueLength) {
+                m_messages.remove(0);
             }
         }
-
 
         LogChangeListener[] activeListeners = m_activeListeners;
         if (activeListeners == null) {

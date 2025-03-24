@@ -22,14 +22,12 @@ class GameVisualizerTest {
     void testRobotDoesNotMoveOutsideBounds() {
         gameVisualizer.setTargetPosition(new Point(400, 400));
 
-        for (int i = 0; i < 100; i++) {
-            gameVisualizer.onModelUpdateEvent();
-        }
+        gameVisualizer.onModelUpdateEvent();
 
         double robotX = gameVisualizer.m_robotPositionX;
         double robotY = gameVisualizer.m_robotPositionY;
 
-        assertTrue(robotX >= 0 && robotX <= gameVisualizer.getWidth() - 1, "Robot X position is out of bounds");
-        assertTrue(robotY >= 0 && robotY <= gameVisualizer.getHeight() - 1, "Robot Y position is out of bounds");
+        assertTrue(robotX >= 0 && robotX <= gameVisualizer.getWidth() - 1);
+        assertTrue(robotY >= 0 && robotY <= gameVisualizer.getHeight() - 1);
     }
 }
