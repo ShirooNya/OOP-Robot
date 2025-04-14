@@ -14,6 +14,7 @@ public class CreateMenuBar {
 
     public JMenuBar generateMenuBar() {
         JMenuBar menuBar = new JMenuBar();
+        menuBar.add(systemMenu());
         menuBar.add(lookAndFeelMenu());
         menuBar.add(testMenu());
         return menuBar;
@@ -49,6 +50,19 @@ public class CreateMenuBar {
         testMenu.add(addLogMessageItem);
 
         return testMenu;
+    }
+
+    public JMenu systemMenu() {
+        JMenu systemMenu = new JMenu("Система");
+        systemMenu.setMnemonic(KeyEvent.VK_V);
+        systemMenu.getAccessibleContext().setAccessibleDescription(
+                "Тут можной выйти");
+
+        JMenuItem exitButton = new JMenuItem("Выход", KeyEvent.VK_S);
+        exitButton.addActionListener((_) -> ConfirmationWindow.closeApplication(parentFrame));
+        systemMenu.add(exitButton);
+
+        return systemMenu;
     }
 
     private void setLookAndFeel(String className)
