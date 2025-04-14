@@ -2,10 +2,10 @@ package gui;
 
 import java.awt.Dimension;
 import java.awt.Toolkit;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
-import javax.swing.JDesktopPane;
-import javax.swing.JFrame;
-import javax.swing.JInternalFrame;
+import javax.swing.*;
 
 import log.Logger;
 
@@ -33,14 +33,17 @@ public class MainApplicationFrame extends JFrame
 
         LogWindow logWindow = createLogWindow();
         addWindow(logWindow);
+        ConfirmationWindow.addCloseConfirmation(logWindow);
 
         GameWindow gameWindow = new GameWindow();
         gameWindow.setSize(400,  400);
         addWindow(gameWindow);
+        ConfirmationWindow.addCloseConfirmation(gameWindow);
 
         CreateMenuBar createMenu = new CreateMenuBar(this);
         setJMenuBar(createMenu.generateMenuBar());
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        ConfirmationWindow.addCloseConfirmation(MainApplicationFrame.this);
+
     }
 
     protected LogWindow createLogWindow()

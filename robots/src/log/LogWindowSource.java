@@ -14,7 +14,7 @@ import java.util.Collections;
  */
 
 public class LogWindowSource {
-    private int m_iQueueLength;
+    int m_iQueueLength;
     private final ArrayList<LogEntry> m_messages;
     private final ArrayList<LogChangeListener> m_listeners;
     private volatile LogChangeListener[] m_activeListeners;
@@ -42,12 +42,13 @@ public class LogWindowSource {
     public void append(LogLevel logLevel, String strMessage) {
 
         LogEntry entry = new LogEntry(logLevel, strMessage);
-        m_messages.add(entry);
+        synchronized (m_messages) {
+            m_messages.add(entry);
 
-        if (m_messages.size() > m_iQueueLength) {
-            m_messages.removeFirst();
+            while (m_messages.size() > m_iQueueLength) {
+                m_messages.remove(0);
+            }
         }
-
 
         LogChangeListener[] activeListeners = m_activeListeners;
         if (activeListeners == null) {
