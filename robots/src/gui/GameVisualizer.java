@@ -1,217 +1,116 @@
 package gui;
 
-import java.awt.Color;
-import java.awt.EventQueue;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.geom.AffineTransform;
-import java.util.Timer;
-import java.util.TimerTask;
+import mechanics.Movements;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import javax.imageio.ImageIO;
+import javax.swing.*;
 
-import javax.swing.JPanel;
+public class GameVisualizer extends JPanel {
+    private final Movements gameModel;
+    private int cellSize = 40;
+    private BufferedImage playerSprite;
 
-public class GameVisualizer extends JPanel
-{
-    private final Timer m_timer = initTimer();
-    
-    private static Timer initTimer() 
-    {
-        Timer timer = new Timer("events generator", true);
-        return timer;
-    }
-    
-    volatile double m_robotPositionX = 100;
-    volatile double m_robotPositionY = 100;
-    private volatile double m_robotDirection = 0; 
+    public GameVisualizer() {
+        this.gameModel = new Movements();
 
-    private volatile int m_targetPositionX = 150;
-    private volatile int m_targetPositionY = 100;
-    
-    private static final double maxVelocity = 0.1; 
-    private static final double maxAngularVelocity = 0.01;
-    
-    public GameVisualizer() 
-    {
-        m_timer.schedule(new TimerTask()
-        {
-            @Override
-            public void run()
-            {
-                onRedrawEvent();
+        // Загрузка спрайта
+        try {
+            // Пытаемся загрузить из ресурсов
+            playerSprite = ImageIO.read(getClass().getResourceAsStream("/resources/character.png"));
+
+            if (playerSprite != null) {
+                playerSprite = scaleImage(playerSprite, cellSize - 4, cellSize - 4);
+            } else {
+                System.err.println("Не удалось загрузить спрайт игрока. Будет использован стандартный прямоугольник.");
             }
-        }, 0, 50);
-        m_timer.schedule(new TimerTask()
-        {
+        } catch (IOException e) {
+            e.printStackTrace();
+            playerSprite = null;
+        }
+
+        // Обработчик клавиатуры
+        addKeyListener(new KeyAdapter() {
             @Override
-            public void run()
-            {
-                onModelUpdateEvent();
-            }
-        }, 0, 10);
-        addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mouseClicked(MouseEvent e)
-            {
-                setTargetPosition(e.getPoint());
+            public void keyPressed(KeyEvent e) {
+                gameModel.handleKeyPress(e);
                 repaint();
             }
         });
+
         setDoubleBuffered(true);
+        setFocusable(true);
+        requestFocusInWindow(); // Добавляем фокус на панель
     }
 
-    protected void setTargetPosition(Point p)
-    {
-        m_targetPositionX = p.x;
-        m_targetPositionY = p.y;
-    }
-    
-    protected void onRedrawEvent()
-    {
-        EventQueue.invokeLater(this::repaint);
-    }
-
-    private static double distance(double x1, double y1, double x2, double y2)
-    {
-        double diffX = x1 - x2;
-        double diffY = y1 - y2;
-        return Math.sqrt(diffX * diffX + diffY * diffY);
-    }
-    
-    private static double angleTo(double fromX, double fromY, double toX, double toY)
-    {
-        double diffX = toX - fromX;
-        double diffY = toY - fromY;
-        
-        return asNormalizedRadians(Math.atan2(diffY, diffX));
-    }
-    
-    protected void onModelUpdateEvent()
-    {
-        double distance = distance(m_targetPositionX, m_targetPositionY, 
-            m_robotPositionX, m_robotPositionY);
-        if (distance < 0.5)
-        {
-            return;
-        }
-        double velocity = maxVelocity;
-        double angleToTarget = angleTo(m_robotPositionX, m_robotPositionY, m_targetPositionX, m_targetPositionY);
-        double angularVelocity = 0;
-        if (angleToTarget > m_robotDirection)
-        {
-            angularVelocity = maxAngularVelocity;
-        }
-        if (angleToTarget < m_robotDirection)
-        {
-            angularVelocity = -maxAngularVelocity;
-        }
-        
-        moveRobot(velocity, angularVelocity, 10);
-    }
-    
-    private static double applyLimits(double value, double min, double max)
-    {
-        if (value < min)
-            return min;
-        if (value > max)
-            return max;
-        return value;
-    }
-    
-    private void moveRobot(double velocity, double angularVelocity, double duration)
-    {
-        velocity = applyLimits(velocity, 0, maxVelocity);
-        angularVelocity = applyLimits(angularVelocity, -maxAngularVelocity, maxAngularVelocity);
-        double newX = m_robotPositionX + velocity / angularVelocity * 
-            (Math.sin(m_robotDirection  + angularVelocity * duration) -
-                Math.sin(m_robotDirection));
-        if (!Double.isFinite(newX))
-        {
-            newX = m_robotPositionX + velocity * duration * Math.cos(m_robotDirection);
-        }
-        double newY = m_robotPositionY - velocity / angularVelocity * 
-            (Math.cos(m_robotDirection  + angularVelocity * duration) -
-                Math.cos(m_robotDirection));
-        if (!Double.isFinite(newY))
-        {
-            newY = m_robotPositionY + velocity * duration * Math.sin(m_robotDirection);
-        }
-
-        int panelWidth = getWidth();
-        int panelHeight = getHeight();
-
-        newX = applyLimits(newX, 0, panelWidth - 1);
-        newY = applyLimits(newY, 0, panelHeight - 1);
-
-        m_robotPositionX = newX;
-        m_robotPositionY = newY;
-        double newDirection = asNormalizedRadians(m_robotDirection + angularVelocity * duration); 
-        m_robotDirection = newDirection;
-    }
-
-    private static double asNormalizedRadians(double angle)
-    {
-        while (angle < 0)
-        {
-            angle += 2*Math.PI;
-        }
-        while (angle >= 2*Math.PI)
-        {
-            angle -= 2*Math.PI;
-        }
-        return angle;
-    }
-    
-    private static int round(double value)
-    {
-        return (int)(value + 0.5);
-    }
-    
     @Override
-    public void paint(Graphics g)
-    {
-        super.paint(g);
-        Graphics2D g2d = (Graphics2D)g; 
-        drawRobot(g2d, round(m_robotPositionX), round(m_robotPositionY), m_robotDirection);
-        drawTarget(g2d, m_targetPositionX, m_targetPositionY);
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+
+        // Рассчитываем количество клеток
+        int cols = getWidth() / cellSize;
+        int rows = getHeight() / cellSize;
+        gameModel.updateGridSize(cols, rows);
+
+        // Отрисовка клетчатого фона
+        drawGrid(g2d, cols, rows);
+
+        // Отрисовка игрока
+        drawPlayer(g2d);
     }
-    
-    private static void fillOval(Graphics g, int centerX, int centerY, int diam1, int diam2)
-    {
-        g.fillOval(centerX - diam1 / 2, centerY - diam2 / 2, diam1, diam2);
-    }
-    
-    private static void drawOval(Graphics g, int centerX, int centerY, int diam1, int diam2)
-    {
-        g.drawOval(centerX - diam1 / 2, centerY - diam2 / 2, diam1, diam2);
-    }
-    
-    private void drawRobot(Graphics2D g, int x, int y, double direction)
-    {
-        int robotCenterX = round(m_robotPositionX); 
-        int robotCenterY = round(m_robotPositionY);
-        AffineTransform t = AffineTransform.getRotateInstance(direction, robotCenterX, robotCenterY); 
-        g.setTransform(t);
-        g.setColor(Color.MAGENTA);
-        fillOval(g, robotCenterX, robotCenterY, 30, 10);
-        g.setColor(Color.BLACK);
-        drawOval(g, robotCenterX, robotCenterY, 30, 10);
+
+    private void drawGrid(Graphics2D g, int cols, int rows) {
+        // Заливаем фон белым цветом
         g.setColor(Color.WHITE);
-        fillOval(g, robotCenterX  + 10, robotCenterY, 5, 5);
-        g.setColor(Color.BLACK);
-        drawOval(g, robotCenterX  + 10, robotCenterY, 5, 5);
+        g.fillRect(0, 0, cols * cellSize, rows * cellSize);
+
+        // Рисуем сетку
+        g.setColor(Color.LIGHT_GRAY);
+
+        // Вертикальные линии
+        for (int i = 0; i <= cols; i++) {
+            int x = i * cellSize;
+            g.drawLine(x, 0, x, rows * cellSize);
+        }
+
+        // Горизонтальные линии
+        for (int i = 0; i <= rows; i++) {
+            int y = i * cellSize;
+            g.drawLine(0, y, cols * cellSize, y);
+        }
     }
-    
-    private void drawTarget(Graphics2D g, int x, int y)
-    {
-        AffineTransform t = AffineTransform.getRotateInstance(0, 0, 0); 
-        g.setTransform(t);
-        g.setColor(Color.GREEN);
-        fillOval(g, x, y, 5, 5);
-        g.setColor(Color.BLACK);
-        drawOval(g, x, y, 5, 5);
+
+    private void drawPlayer(Graphics2D g) {
+        int x = gameModel.getPlayerX() * cellSize + 2;
+        int y = gameModel.getPlayerY() * cellSize + 2;
+
+        if (playerSprite != null) {
+            g.drawImage(playerSprite, x, y, null);
+        } else {
+            // Fallback - рисуем прямоугольник
+            g.setColor(new Color(0, 128, 255, 200));
+            g.fillRect(x, y, cellSize - 4, cellSize - 4);
+            g.setColor(Color.BLUE);
+            g.drawRect(x, y, cellSize - 4, cellSize - 4);
+        }
+    }
+
+    private BufferedImage scaleImage(BufferedImage original, int width, int height) {
+        if (original == null) return null;
+
+        BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = scaled.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.drawImage(original, 0, 0, width, height, null);
+        g2d.dispose();
+        return scaled;
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(600, 600);
     }
 }
