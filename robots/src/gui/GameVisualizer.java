@@ -10,28 +10,34 @@ import javax.swing.*;
 
 public class GameVisualizer extends JPanel {
     private final Movements gameModel;
-    private int cellSize = 40;
     private BufferedImage playerSprite;
+    private int fixedCols = 15;
+    private int fixedRows = 15;
+    private int cellSize;
+    private int gridWidth;
+    private int gridHeight;
+    private int xOffset;
+    private int yOffset;
 
     public GameVisualizer() {
         this.gameModel = new Movements();
+        gameModel.updateGridSize(fixedCols, fixedRows);
 
-        // Загрузка спрайта
         try {
-            // Пытаемся загрузить из ресурсов
             playerSprite = ImageIO.read(getClass().getResourceAsStream("/resources/character.png"));
-
-            if (playerSprite != null) {
-                playerSprite = scaleImage(playerSprite, cellSize - 4, cellSize - 4);
-            } else {
-                System.err.println("Не удалось загрузить спрайт игрока. Будет использован стандартный прямоугольник.");
-            }
         } catch (IOException e) {
             e.printStackTrace();
             playerSprite = null;
         }
 
-        // Обработчик клавиатуры
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                calculateGridDimensions();
+                repaint();
+            }
+        });
+
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -42,7 +48,41 @@ public class GameVisualizer extends JPanel {
 
         setDoubleBuffered(true);
         setFocusable(true);
-        requestFocusInWindow(); // Добавляем фокус на панель
+        requestFocusInWindow();
+    }
+
+    void calculateGridDimensions() {
+        int availableWidth = getWidth();
+        int availableHeight = getHeight();
+
+        // Рассчитываем максимально возможный размер клетки
+        int maxCellWidth = availableWidth / fixedCols;
+        int maxCellHeight = availableHeight / fixedRows;
+        cellSize = Math.min(maxCellWidth, maxCellHeight);
+
+        // Гарантируем, что клетки не будут меньше минимального размера
+        cellSize = Math.max(cellSize, 10);
+
+        // Рассчитываем общий размер сетки
+        gridWidth = fixedCols * cellSize;
+        gridHeight = fixedRows * cellSize;
+
+        // Центрируем сетку, если она меньше доступной области
+        xOffset = Math.max(0, (availableWidth - gridWidth) / 2);
+        yOffset = Math.max(0, (availableHeight - gridHeight) / 2);
+
+        // Корректируем размеры, если сетка выходит за границы
+        if (gridWidth > availableWidth) {
+            cellSize = availableWidth / fixedCols;
+            gridWidth = fixedCols * cellSize;
+            xOffset = 0;
+        }
+
+        if (gridHeight > availableHeight) {
+            cellSize = availableHeight / fixedRows;
+            gridHeight = fixedRows * cellSize;
+            yOffset = 0;
+        }
     }
 
     @Override
@@ -50,51 +90,50 @@ public class GameVisualizer extends JPanel {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // Рассчитываем количество клеток
-        int cols = getWidth() / cellSize;
-        int rows = getHeight() / cellSize;
-        gameModel.updateGridSize(cols, rows);
+        // Пересчитываем размеры при каждой отрисовке
+        calculateGridDimensions();
 
         // Отрисовка клетчатого фона
-        drawGrid(g2d, cols, rows);
+        drawGrid(g2d);
 
         // Отрисовка игрока
         drawPlayer(g2d);
     }
 
-    void drawGrid(Graphics2D g, int cols, int rows) {
+    void drawGrid(Graphics2D g) {
         // Заливаем фон белым цветом
         g.setColor(Color.WHITE);
-        g.fillRect(0, 0, cols * cellSize, rows * cellSize);
+        g.fillRect(xOffset, yOffset, gridWidth, gridHeight);
 
         // Рисуем сетку
         g.setColor(Color.LIGHT_GRAY);
 
         // Вертикальные линии
-        for (int i = 0; i <= cols; i++) {
-            int x = i * cellSize;
-            g.drawLine(x, 0, x, rows * cellSize);
+        for (int i = 0; i <= fixedCols; i++) {
+            int x = xOffset + i * cellSize;
+            g.drawLine(x, yOffset, x, yOffset + gridHeight);
         }
 
         // Горизонтальные линии
-        for (int i = 0; i <= rows; i++) {
-            int y = i * cellSize;
-            g.drawLine(0, y, cols * cellSize, y);
+        for (int i = 0; i <= fixedRows; i++) {
+            int y = yOffset + i * cellSize;
+            g.drawLine(xOffset, y, xOffset + gridWidth, y);
         }
     }
 
     void drawPlayer(Graphics2D g) {
-        int x = gameModel.getPlayerX() * cellSize + 2;
-        int y = gameModel.getPlayerY() * cellSize + 2;
+        int x = xOffset + gameModel.getPlayerX() * cellSize + 2;
+        int y = yOffset + gameModel.getPlayerY() * cellSize + 2;
+        int spriteSize = cellSize - 4;
 
         if (playerSprite != null) {
-            g.drawImage(playerSprite, x, y, null);
+            BufferedImage scaledSprite = scaleImage(playerSprite, spriteSize, spriteSize);
+            g.drawImage(scaledSprite, x, y, null);
         } else {
-            // Fallback - рисуем прямоугольник
             g.setColor(new Color(0, 128, 255, 200));
-            g.fillRect(x, y, cellSize - 4, cellSize - 4);
+            g.fillRect(x, y, spriteSize, spriteSize);
             g.setColor(Color.BLUE);
-            g.drawRect(x, y, cellSize - 4, cellSize - 4);
+            g.drawRect(x, y, spriteSize, spriteSize);
         }
     }
 
@@ -111,10 +150,26 @@ public class GameVisualizer extends JPanel {
 
     @Override
     public Dimension getPreferredSize() {
-        return new Dimension(600, 600);
+        int baseCellSize = 40;
+        return new Dimension(fixedCols * baseCellSize, fixedRows * baseCellSize);
     }
 
-    public int getCellSize() {
-        return cellSize;
+    public int getFixedCols() { return fixedCols; }
+    public int getFixedRows() { return fixedRows; }
+    public int getCellSize() { return cellSize; }
+    public int getGridWidth() { return gridWidth; }
+    public int getGridHeight() { return gridHeight; }
+    public int getXOffset() { return xOffset; }
+    public int getYOffset() { return yOffset; }
+
+    static GameVisualizer createForTest(int cellSize, int gridWidth,
+                                        int gridHeight, int xOffset, int yOffset) {
+        GameVisualizer instance = new GameVisualizer();
+        instance.cellSize = cellSize;
+        instance.gridWidth = gridWidth;
+        instance.gridHeight = gridHeight;
+        instance.xOffset = xOffset;
+        instance.yOffset = yOffset;
+        return instance;
     }
 }

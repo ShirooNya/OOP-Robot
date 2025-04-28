@@ -8,10 +8,13 @@ import org.mockito.Mockito;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -32,6 +35,8 @@ class GameVisualizerTest {
 
             // Создаем мок для Movements
             mockMovements = Mockito.mock(Movements.class);
+            when(mockMovements.getPlayerX()).thenReturn(2);
+            when(mockMovements.getPlayerY()).thenReturn(3);
 
             // Создаем экземпляр GameVisualizer
             gameVisualizer = new GameVisualizer();
@@ -48,18 +53,17 @@ class GameVisualizerTest {
 
     @Test
     void testInitialization() {
-        // Тест инициализации
+        // Проверяем корректность инициализации объекта GameVisualizer
         assertNotNull(gameVisualizer);
         assertTrue(gameVisualizer.isFocusable());
         assertTrue(gameVisualizer.isDoubleBuffered());
+        assertEquals(15, gameVisualizer.getFixedCols());
+        assertEquals(15, gameVisualizer.getFixedRows());
     }
 
     @Test
     void testKeyPressHandling() {
-        // Тест обработки нажатий клавиш
-        when(mockMovements.getCols()).thenReturn(10);
-        when(mockMovements.getRows()).thenReturn(10);
-
+        // Проверка обработки нажатий клавиш
         KeyEvent rightKeyEvent = new KeyEvent(gameVisualizer, KeyEvent.KEY_PRESSED,
                 System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, 'D');
 
@@ -70,121 +74,166 @@ class GameVisualizerTest {
 
     @Test
     void testPaintComponent() {
-        // Тест отрисовки компонента
-        // Настраиваем мок
-        when(mockMovements.getPlayerX()).thenReturn(2);
-        when(mockMovements.getPlayerY()).thenReturn(3);
-        when(mockMovements.getCols()).thenReturn(20);
-        when(mockMovements.getRows()).thenReturn(15);
-
-        // Создаем реальный Graphics объект для тестирования
+        // Проверка корректности отрисовки компонента
         BufferedImage bi = new BufferedImage(800, 600, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = bi.createGraphics();
 
         try {
             gameVisualizer.paintComponent(g2d);
 
-            // Проверяем, что игрок отрисован в правильной позиции
-            // Можно проверить пиксели в ожидаемой позиции
-            int expectedX = 2 * gameVisualizer.getCellSize() + 2;
-            int expectedY = 3 * gameVisualizer.getCellSize() + 2;
+            // Проверяем, что сетка была нарисована
+            // Берем точку в центре клетки, а не на границе
+            int checkX = gameVisualizer.getXOffset() + gameVisualizer.getCellSize() / 2;
+            int checkY = gameVisualizer.getYOffset() + gameVisualizer.getCellSize() / 2;
+            assertEquals(Color.WHITE.getRGB(), bi.getRGB(checkX, checkY));
 
-            // Простая проверка, что что-то нарисовано в этой области
-            assertNotEquals(0, bi.getRGB(expectedX, expectedY));
+            // Проверяем позицию игрока
+            int expectedX = gameVisualizer.getXOffset() + 2 * gameVisualizer.getCellSize() + 2;
+            int expectedY = gameVisualizer.getYOffset() + 3 * gameVisualizer.getCellSize() + 2;
+
+            // Проверяем что это не белый цвет (значит что-то нарисовано)
+            assertNotEquals(Color.WHITE.getRGB(), bi.getRGB(expectedX, expectedY));
         } finally {
             g2d.dispose();
         }
     }
 
     @Test
-    void testGridSizeUpdate() {
-        // Тест обновления размеров сетки
-        when(mockMovements.getCols()).thenReturn(10);
-        when(mockMovements.getRows()).thenReturn(10);
+    void testGridDimensionsCalculation() throws Exception {
+        // Проверка расчета размеров сетки
 
-        gameVisualizer.setSize(400, 300);
+        // Устанавливаем размеры панели
+        gameVisualizer.setSize(450, 300);
 
-        BufferedImage bi = new BufferedImage(400, 300, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = bi.createGraphics();
+        // Вызываем расчет размеров
+        Method calculateMethod = GameVisualizer.class.getDeclaredMethod("calculateGridDimensions");
+        calculateMethod.setAccessible(true);
+        calculateMethod.invoke(gameVisualizer);
 
-        try {
-            gameVisualizer.paintComponent(g2d);
-
-            int expectedCols = 400 / gameVisualizer.getCellSize();
-            int expectedRows = 300 / gameVisualizer.getCellSize();
-            verify(mockMovements).updateGridSize(expectedCols, expectedRows);
-        } finally {
-            g2d.dispose();
-        }
+        // Проверяем результаты
+        assertEquals(20, gameVisualizer.getCellSize()); // 450/15 = 30, 300/15 = 20 -> min(30,20) = 20
+        assertEquals(300, gameVisualizer.getGridWidth()); // 15*20 = 300
+        assertEquals(300, gameVisualizer.getGridHeight()); // 15*20 = 300
+        assertEquals(75, gameVisualizer.getXOffset()); // (450-300)/2 = 75
+        assertEquals(0, gameVisualizer.getYOffset()); // (300-300)/2 = 0
     }
 
     @Test
     void testPreferredSize() {
-        // тест размеров по умолчанию
+        // Проверка изначального размера компонента
         Dimension preferredSize = gameVisualizer.getPreferredSize();
-        assertEquals(600, preferredSize.width);
-        assertEquals(600, preferredSize.height);
+        assertEquals(600, preferredSize.width);  // 15*40 = 600
+        assertEquals(600, preferredSize.height); // 15*40 = 600
     }
 
     @Test
     void testDrawGrid() throws Exception {
-        // Тест отрисовки сетки
+        // Подготовка
+        GameVisualizer testVisualizer = GameVisualizer.createForTest(30, 450, 450, 50, 50);
+        Graphics2D g2d = mock(Graphics2D.class);
 
-        // Создаем наследник для тестирования protected методов
-        class TestGameVisualizer extends GameVisualizer {
-            void publicDrawGrid(Graphics2D g, int cols, int rows) {
-                super.drawGrid(g, cols, rows);
-            }
-        }
+        // Вызов
+        testVisualizer.drawGrid(g2d);
 
-        TestGameVisualizer testVisualizer = new TestGameVisualizer();
+        // Проверка фона
+        verify(g2d).setColor(Color.WHITE);
+        verify(g2d).fillRect(50, 50, 450, 450);
+
+        // Проверка линий сетки
+        verify(g2d).setColor(Color.LIGHT_GRAY);
+
+        // Проверка количества линий (16 вертикальных и 16 горизонтальных)
+        verify(g2d, times(16)).drawLine(
+                anyInt(), eq(50), anyInt(), eq(50 + 450) // vertical
+        );
+        verify(g2d, times(16)).drawLine(
+                eq(50), anyInt(), eq(50 + 450), anyInt() // horizontal
+        );
+
+        // Проверка конкретной линии
+        verify(g2d).drawLine(eq(50 + 3*30), eq(50), eq(50 + 3*30), eq(50 + 450));
+
+        // Проверка что ничего лишнего не вызвано
+        verifyNoMoreInteractions(g2d);
+    }
+
+    @Test
+    void testDrawPlayer() throws Exception {
+        // Проверка отрисовки персонажа
+
+        // Создаем тестовый экземпляр через фабричный метод
+        GameVisualizer testVisualizer = GameVisualizer.createForTest(30, 0, 0, 50, 50);
+
+        // Подменяем gameModel через reflection
+        Field gameModelField = GameVisualizer.class.getDeclaredField("gameModel");
+        gameModelField.setAccessible(true);
+        Movements mockModel = mock(Movements.class);
+        when(mockModel.getPlayerX()).thenReturn(1);
+        when(mockModel.getPlayerY()).thenReturn(1);
+        gameModelField.set(testVisualizer, mockModel);
+
+        // Создаем тестовое изображение
         BufferedImage bi = new BufferedImage(200, 200, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = bi.createGraphics();
 
         try {
-            testVisualizer.publicDrawGrid(g2d, 5, 5);
+            // Вызываем метод отрисовки игрока
+            Method drawPlayerMethod = GameVisualizer.class.getDeclaredMethod("drawPlayer", Graphics2D.class);
+            drawPlayerMethod.setAccessible(true);
+            drawPlayerMethod.invoke(testVisualizer, g2d);
 
-            // Проверяем, что фон белый
-            assertEquals(Color.WHITE.getRGB(), bi.getRGB(10, 10));
+            // Проверяем результат
+            int expectedX = 50 + 1 * 30 + 2; // xOffset + playerX * cellSize + 2
+            int expectedY = 50 + 1 * 30 + 2; // yOffset + playerY * cellSize + 2
+
+            assertNotEquals(0, bi.getRGB(expectedX, expectedY),
+                    "Игрок должен быть нарисован в позиции (" + expectedX + "," + expectedY + ")");
         } finally {
             g2d.dispose();
         }
     }
 
     @Test
-    void testDrawPlayer() throws Exception {
-        // Тест отрисовки игрока
+    void testComponentResize() throws Exception {
+        // Проверка реакции на изменение размера
 
-        // Создаем наследник для тестирования protected методов
-        class TestGameVisualizer extends GameVisualizer {
-            void publicDrawPlayer(Graphics2D g) {
-                super.drawPlayer(g);
-            }
-        }
+        // Создаем реальный экземпляр (не spy/mock)
+        GameVisualizer visualizer = new GameVisualizer();
+        visualizer.setSize(800, 600);
 
-        TestGameVisualizer testVisualizer = new TestGameVisualizer();
+        // Подменяем gameModel через reflection
+        Field gameModelField = GameVisualizer.class.getDeclaredField("gameModel");
+        gameModelField.setAccessible(true);
+        gameModelField.set(visualizer, mockMovements);
 
-        // Подменяем gameModel
-        Field field = GameVisualizer.class.getDeclaredField("gameModel");
-        field.setAccessible(true);
-        Movements mockModel = mock(Movements.class);
-        when(mockModel.getPlayerX()).thenReturn(1);
-        when(mockModel.getPlayerY()).thenReturn(1);
-        field.set(testVisualizer, mockModel);
+        // Получаем текущие значения до изменения размера
+        int initialCellSize = visualizer.getCellSize();
 
-        BufferedImage bi = new BufferedImage(100, 100, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = bi.createGraphics();
+        // Изменяем размер
+        visualizer.setSize(900, 700);
 
-        try {
-            testVisualizer.publicDrawPlayer(g2d);
+        // Получаем ComponentListener
+        ComponentListener listener = visualizer.getComponentListeners()[0];
 
-            int expectedX = 1 * testVisualizer.getCellSize() + 2;
-            int expectedY = 1 * testVisualizer.getCellSize() + 2;
+        // Создаем событие изменения размера
+        ComponentEvent resizeEvent = new ComponentEvent(visualizer, ComponentEvent.COMPONENT_RESIZED);
 
-            // Проверяем, что что-то нарисовано в этой позиции
-            assertNotEquals(0, bi.getRGB(expectedX, expectedY));
-        } finally {
-            g2d.dispose();
-        }
+        // Вызываем обработчик вручную
+        listener.componentResized(resizeEvent);
+
+        // Проверяем, что размер клетки изменился
+        assertNotEquals(initialCellSize, visualizer.getCellSize());
+
+        // Проверяем новые расчеты
+        int expectedCellSize = Math.min(900 / 15, 700 / 15);
+        assertEquals(expectedCellSize, visualizer.getCellSize());
+        assertEquals(15 * expectedCellSize, visualizer.getGridWidth());
+        assertEquals(15 * expectedCellSize, visualizer.getGridHeight());
+
+        // Проверяем центрирование
+        int expectedXOffset = (900 - 15 * expectedCellSize) / 2;
+        int expectedYOffset = (700 - 15 * expectedCellSize) / 2;
+        assertEquals(expectedXOffset, visualizer.getXOffset());
+        assertEquals(expectedYOffset, visualizer.getYOffset());
     }
 }
