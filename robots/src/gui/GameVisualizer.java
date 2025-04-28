@@ -62,7 +62,7 @@ public class GameVisualizer extends JPanel {
         drawPlayer(g2d);
     }
 
-    private void drawGrid(Graphics2D g, int cols, int rows) {
+    void drawGrid(Graphics2D g, int cols, int rows) {
         // Заливаем фон белым цветом
         g.setColor(Color.WHITE);
         g.fillRect(0, 0, cols * cellSize, rows * cellSize);
@@ -83,7 +83,7 @@ public class GameVisualizer extends JPanel {
         }
     }
 
-    private void drawPlayer(Graphics2D g) {
+    void drawPlayer(Graphics2D g) {
         int x = gameModel.getPlayerX() * cellSize + 2;
         int y = gameModel.getPlayerY() * cellSize + 2;
 
@@ -98,7 +98,7 @@ public class GameVisualizer extends JPanel {
         }
     }
 
-    private BufferedImage scaleImage(BufferedImage original, int width, int height) {
+    BufferedImage scaleImage(BufferedImage original, int width, int height) {
         if (original == null) return null;
 
         BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
@@ -112,5 +112,9 @@ public class GameVisualizer extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         return new Dimension(600, 600);
+    }
+
+    public int getCellSize() {
+        return cellSize;
     }
 }

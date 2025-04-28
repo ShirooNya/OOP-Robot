@@ -43,4 +43,6 @@ public class Movements {
     // Геттеры
     public int getPlayerX() { return playerX; }
     public int getPlayerY() { return playerY; }
+    public int getCols() {return cols; }
+    public int getRows() {return rows; }
 }
