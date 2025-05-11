@@ -8,39 +8,41 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 public class ConfirmationWindow {
-
-    // Общий метод для подтверждения действия
-    public static boolean confirmAction(Component parent) {
+    public static boolean confirmAction(Component parent, String message, String title) {
         int result = JOptionPane.showConfirmDialog(
                 parent,
-                "Вы уверены, что хотите закрыть это окно?",
-                "Подтверждение выхода",
+                message,
+                title,
                 JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE
-        );
+                JOptionPane.QUESTION_MESSAGE);
         return result == JOptionPane.YES_OPTION;
     }
 
-    // Метод для закрытия окон внутри основного
     public static void addCloseConfirmation(JInternalFrame frame) {
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addInternalFrameListener(new InternalFrameAdapter() {
             @Override
             public void internalFrameClosing(InternalFrameEvent e) {
-                if (confirmAction(frame)) {
+                if (confirmAction(frame,
+                        "Вы уверены, что хотите закрыть это окно?",
+                        "Подтверждение выхода")) {
                     frame.dispose();
                 }
             }
         });
     }
 
-    // Метод для закрытия основного окна
     public static void addCloseConfirmation(JFrame frame) {
         frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                if (confirmAction(frame)) {
+                if (confirmAction(frame,
+                        "Вы уверены, что хотите выйти из приложения?",
+                        "Подтверждение выхода")) {
+                    if (frame instanceof MainApplicationFrame) {
+                        ((MainApplicationFrame)frame).saveWindowStates();
+                    }
                     frame.dispose();
                     exitApplication();
                 }
@@ -48,9 +50,13 @@ public class ConfirmationWindow {
         });
     }
 
-    // Метод для непосредственного закрытия
     public static void closeApplication(JFrame frame) {
-        if (confirmAction(frame)) {
+        if (confirmAction(frame,
+                "Вы уверены, что хотите выйти из приложения?",
+                "Подтверждение выхода")) {
+            if (frame instanceof MainApplicationFrame) {
+                ((MainApplicationFrame)frame).saveWindowStates();
+            }
             frame.dispose();
             exitApplication();
         }
