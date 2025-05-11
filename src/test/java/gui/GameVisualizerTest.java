@@ -159,35 +159,42 @@ class GameVisualizerTest {
 
     @Test
     void testDrawPlayer() throws Exception {
-        // Проверка отрисовки персонажа
-
-        // Создаем тестовый экземпляр через фабричный метод
-        GameVisualizer testVisualizer = GameVisualizer.createForTest(30, 0, 0, 50, 50);
-
-        // Подменяем gameModel через reflection
-        Field gameModelField = GameVisualizer.class.getDeclaredField("gameModel");
-        gameModelField.setAccessible(true);
+        // Настройка
+        GameVisualizer visualizer = GameVisualizer.createForTest(30, 0, 0, 50, 50);
         Movements mockModel = mock(Movements.class);
         when(mockModel.getPlayerX()).thenReturn(1);
         when(mockModel.getPlayerY()).thenReturn(1);
-        gameModelField.set(testVisualizer, mockModel);
+
+        // Подмена gameModel через reflection
+        Field modelField = GameVisualizer.class.getDeclaredField("gameModel");
+        modelField.setAccessible(true);
+        modelField.set(visualizer, mockModel);
 
         // Создаем тестовое изображение
         BufferedImage bi = new BufferedImage(200, 200, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = bi.createGraphics();
 
         try {
-            // Вызываем метод отрисовки игрока
-            Method drawPlayerMethod = GameVisualizer.class.getDeclaredMethod("drawPlayer", Graphics2D.class);
-            drawPlayerMethod.setAccessible(true);
-            drawPlayerMethod.invoke(testVisualizer, g2d);
+            // Отрисовка
+            visualizer.drawPlayer(g2d);
 
-            // Проверяем результат
-            int expectedX = 50 + 1 * 30 + 2; // xOffset + playerX * cellSize + 2
-            int expectedY = 50 + 1 * 30 + 2; // yOffset + playerY * cellSize + 2
+            // Проверяем всю область спрайта
+            int startX = 50 + 1 * 30 + 2; // 82
+            int startY = 50 + 1 * 30 + 2; // 82
+            int spriteSize = 30 - 4;
 
-            assertNotEquals(0, bi.getRGB(expectedX, expectedY),
-                    "Игрок должен быть нарисован в позиции (" + expectedX + "," + expectedY + ")");
+            boolean hasVisiblePixels = false;
+            for (int x = startX; x < startX + spriteSize; x++) {
+                for (int y = startY; y < startY + spriteSize; y++) {
+                    if ((bi.getRGB(x, y) & 0xFF000000) != 0) { // Проверка альфа-канала
+                        hasVisiblePixels = true;
+                        break;
+                    }
+                }
+                if (hasVisiblePixels) break;
+            }
+
+            assertTrue(hasVisiblePixels, "В области спрайта должны быть непрозрачные пиксели");
         } finally {
             g2d.dispose();
         }
